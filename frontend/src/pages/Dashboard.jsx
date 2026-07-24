@@ -26,6 +26,11 @@ export default function Dashboard() {
   const [localHours, setLocalHours] = useState(10);
   const [updatingGoals, setUpdatingGoals] = useState(false);
 
+  // Resource sharing state
+  const [resTitle, setResTitle] = useState('');
+  const [resLink, setResLink] = useState('');
+  const [sharingResource, setSharingResource] = useState(false);
+
   // General state
   const [loading, setLoading] = useState(true);
 
@@ -148,6 +153,62 @@ export default function Dashboard() {
     }
   };
 
+  const handleBroadcastInvite = async (alertMessage) => {
+    let pathway = '';
+    if (alertMessage.toLowerCase().includes('diploma')) pathway = 'diploma_btech';
+    else if (alertMessage.toLowerCase().includes('12th')) pathway = '12th_btech';
+    
+    const message = `Advisory: You have been recommended to attend the preparatory Bridge Course session: "${alertMessage}"`;
+    
+    try {
+      const res = await fetch('/api/students/broadcast-invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ pathway, message })
+      });
+      if (res.ok) {
+        alert('Bridge Course invitation successfully broadcast to matching student pathways!');
+      } else {
+        alert('Failed to broadcast invitation.');
+      }
+    } catch (err) {
+      console.error('Error broadcasting:', err);
+    }
+  };
+
+  const handleShareResource = async (e) => {
+    e.preventDefault();
+    if (!resTitle.trim() || !resLink.trim()) return;
+    setSharingResource(true);
+    try {
+      const res = await fetch('/api/students/resources', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ title: resTitle, link: resLink })
+      });
+      if (res.ok) {
+        alert('Academic resource link shared with all student portfolios!');
+        setResTitle('');
+        setResLink('');
+        if (isTeacher) {
+          fetchTeacherData();
+        }
+      } else {
+        alert('Failed to post resource.');
+      }
+    } catch (err) {
+      console.error('Error posting resource:', err);
+    } finally {
+      setSharingResource(false);
+    }
+  };
+
   useEffect(() => {
     if (!token) return;
     if (isTeacher) {
@@ -250,265 +311,343 @@ export default function Dashboard() {
             </Link>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '28px', width: '100%', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', width: '100%' }}>
             
-            {/* Left Column: Profile Summary */}
-            <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+            {/* Advisories & Broadcast Notifications */}
+            {studentProfile.notifications && studentProfile.notifications.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  📢 Course Instructor Advisories & Alerts
+                </h3>
+                {studentProfile.notifications.map((note, idx) => (
+                  <div key={idx} className="glass-panel" style={{
+                    padding: '16px 20px',
+                    background: 'var(--color-primary-glow)',
+                    borderColor: 'var(--color-primary)',
+                    borderLeft: '5px solid var(--color-primary)',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                  }}>
+                    <Sparkles style={{ color: 'var(--color-primary)', flexShrink: 0 }} size={20} />
+                    <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>{note}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '28px', width: '100%', alignItems: 'start' }}>
               
-              {/* Short Profile Overview */}
-              <div className="glass-panel" style={{ padding: '32px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px', marginBottom: '24px' }}>
-                  <div>
-                    <span className="badge badge-low" style={{ marginBottom: '10px' }}>
-                      {studentProfile.isLateralEntry ? 'Lateral Entry' : 'Regular Entry'}
-                    </span>
-                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800 }}>{studentProfile.name}</h2>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', gap: '16px' }}>
-                      <span><strong>Roll:</strong> {studentProfile.rollNumber}</span>
-                      <span><strong>Email:</strong> {studentProfile.email}</span>
+              {/* Left Column: Profile Summary */}
+              <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                
+                {/* Short Profile Overview */}
+                <div className="glass-panel" style={{ padding: '32px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px', marginBottom: '24px' }}>
+                    <div>
+                      <span className="badge badge-low" style={{ marginBottom: '10px' }}>
+                        {studentProfile.isLateralEntry ? 'Lateral Entry' : 'Regular Entry'}
+                      </span>
+                      <h2 style={{ fontSize: '1.75rem', fontWeight: 800 }}>{studentProfile.name}</h2>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', gap: '16px' }}>
+                        <span><strong>Roll:</strong> {studentProfile.rollNumber}</span>
+                        <span><strong>Email:</strong> {studentProfile.email}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <Link to={`/student/${studentProfile._id}`} className="btn btn-secondary" style={{ display: 'flex', gap: '6px' }}>
+                        <Eye size={16} /> View Profile
+                      </Link>
+                      <Link to="/predict" className="btn btn-primary" style={{ display: 'flex', gap: '6px' }}>
+                        <Edit size={16} /> Edit Details
+                      </Link>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <Link to={`/student/${studentProfile._id}`} className="btn btn-secondary" style={{ display: 'flex', gap: '6px' }}>
-                      <Eye size={16} /> View Profile
-                    </Link>
-                    <Link to="/predict" className="btn btn-primary" style={{ display: 'flex', gap: '6px' }}>
-                      <Edit size={16} /> Edit Details
-                    </Link>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="form-label" style={{ marginBottom: '8px' }}>About Me</h4>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6' }}>
-                    {studentProfile.bio || 'No bio written. Edit your profile to tell the college about yourself.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Teacher notes block */}
-              <div className="glass-panel" style={{ padding: '32px', borderLeft: '5px solid var(--color-low)' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-low)', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                  🧠 College Improvement & Mentoring Plan
-                </h3>
-                {studentProfile.improvementNotes ? (
                   <div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '1rem', lineHeight: '1.6', background: 'rgba(0,0,0,0.15)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                      "{studentProfile.improvementNotes}"
+                    <h4 className="form-label" style={{ marginBottom: '8px' }}>About Me</h4>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6' }}>
+                      {studentProfile.bio || 'No bio written. Edit your profile to tell the college about yourself.'}
                     </p>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      <UserCheck size={14} />
-                      <span>Reviewed by your college course advisors</span>
-                    </div>
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: '12px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.15)', padding: '16px', borderRadius: '10px' }}>
-                    <ShieldAlert size={20} style={{ color: 'var(--color-medium)', flexShrink: 0 }} />
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                      <strong>Pending Review:</strong> Your marksheet has been submitted successfully. College mentors have not written improvement recommendations yet. Please check back later.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Quick Education summary */}
-              <div className="glass-panel" style={{ padding: '32px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '20px' }}>Submitted Marksheets Summary</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {studentProfile.educationHistory.map((eh, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{eh.phase}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{eh.institute} ({eh.years})</div>
-                      </div>
-                      <div style={{ fontWeight: 800, color: 'var(--color-primary)', fontSize: '1rem' }}>
-                        {eh.marks}
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              </div>
 
-            </div>
-
-            {/* Right Column: Help, Analytics & Peer matching */}
-            <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-              
-              {/* Goal Tracker Card */}
-              <div className="glass-panel" style={{ padding: '28px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  🎯 My Study Goals
-                </h3>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="form-group" style={{ marginBottom: '8px' }}>
-                    <label className="form-label">Target CGPA</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="1"
-                      max="10"
-                      className="form-input"
-                      value={localCgpa}
-                      onChange={(e) => setLocalCgpa(parseFloat(e.target.value) || '')}
-                      style={{ padding: '10px 14px' }}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '12px' }}>
-                    <label className="form-label">Study Target: {localHours} hours/week</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="40"
-                      className="slider-input"
-                      value={localHours}
-                      onChange={(e) => setLocalHours(parseInt(e.target.value) || 0)}
-                      style={{ marginTop: '8px' }}
-                    />
-                  </div>
-
-                  {/* On Track Indicator */}
-                  {(() => {
-                    const reqHours = localCgpa >= 9.0 ? 15 : localCgpa >= 8.0 ? 10 : 6;
-                    let text = 'Behind Target';
-                    let badgeClass = 'badge-high';
-                    if (localHours >= reqHours) {
-                      text = 'On Track 🚀';
-                      badgeClass = 'badge-low';
-                    } else if (localHours >= reqHours - 3) {
-                      text = 'Needs Work ⚠️';
-                      badgeClass = 'badge-medium';
-                    }
-                    return (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                        <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
-                        <span className={`badge ${badgeClass}`}>{text}</span>
+                {/* Teacher notes block */}
+                <div className="glass-panel" style={{ padding: '32px', borderLeft: '5px solid var(--color-low)' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-low)', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                    🧠 College Improvement & Mentoring Plan
+                  </h3>
+                  {studentProfile.improvementNotes ? (
+                    <div>
+                      <p style={{ color: 'var(--text-primary)', fontSize: '1rem', lineHeight: '1.6', background: 'rgba(0,0,0,0.15)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                        "{studentProfile.improvementNotes}"
+                      </p>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        <UserCheck size={14} />
+                        <span>Reviewed by your college course advisors</span>
                       </div>
-                    );
-                  })()}
-
-                  <button
-                    onClick={() => handleUpdateGoals(localCgpa, localHours)}
-                    className="btn btn-primary"
-                    style={{ width: '100%', padding: '10px 16px', fontSize: '0.9rem', marginTop: '4px' }}
-                    disabled={updatingGoals}
-                  >
-                    {updatingGoals ? 'Saving Targets...' : 'Update Targets'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Bridge Courses Card */}
-              <div className="glass-panel" style={{ padding: '28px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  📚 Recommended Bridging Courses
-                </h3>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                  Acquire basic skills required to match B.Tech criteria.
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {(() => {
-                    const courses = studentProfile.pathway === 'diploma_btech' ? [
-                      { name: 'Advanced Engineering Calculus Refresher', desc: 'Refresher for integration, derivatives, and linear equations.' },
-                      { name: 'Data Structures & OOP in Java', desc: 'Introduces core object design taught in B.Tech Year 1.' }
-                    ] : studentProfile.pathway === 'iti_diploma_btech' ? [
-                      { name: 'Foundation Mathematics & Vectors', desc: 'Core algebraic skills and calculus prerequisites.' },
-                      { name: 'Technical Sketching & Projections', desc: 'ITI mechanical drafting conversion training.' }
-                    ] : [
-                      { name: 'Introductory Programming in C++', desc: 'Essential logic design and algorithmic logic flow.' },
-                      { name: 'Engineering Force Statics', desc: 'Introductory mechanics bridging fundamentals.' }
-                    ];
-
-                    return courses.map((course, idx) => {
-                      const isDone = studentProfile.completedCourses?.includes(course.name);
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => handleToggleCourse(course.name)}
-                          style={{
-                            display: 'flex',
-                            gap: '12px',
-                            padding: '14px',
-                            background: isDone ? 'rgba(16, 185, 129, 0.05)' : 'rgba(255,255,255,0.01)',
-                            border: isDone ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-color)',
-                            borderRadius: '12px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                          }}
-                          className="glass-panel-interactive"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isDone || false}
-                            onChange={() => {}}
-                            style={{ alignSelf: 'flex-start', marginTop: '3px', accentColor: 'var(--color-low)' }}
-                          />
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: '0.9rem', textDecoration: isDone ? 'line-through' : 'none', color: isDone ? 'var(--color-low)' : 'var(--text-primary)' }}>
-                              {course.name}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                              {course.desc}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-
-              {/* Peer Mentorship Matches Card */}
-              <div className="glass-panel" style={{ padding: '28px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  🤝 Peer Tutoring Matches
-                </h3>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                  Students sharing complementary skills and learning requests.
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {peerMentors.length === 0 ? (
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
-                      No direct peer matches found. Update your requested/offered tutor skills in the profile wizard to list matching partners!
                     </div>
                   ) : (
-                    peerMentors.map((mentor, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          padding: '14px',
-                          background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '12px'
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{mentor.name}</div>
-                        <a href={`mailto:${mentor.email}`} style={{ fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
-                          {mentor.email}
-                        </a>
-                        
-                        {mentor.offeredMatches.length > 0 && (
-                          <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--color-low)' }}>
-                            <strong>Can help you:</strong> {mentor.offeredMatches.join(', ')}
-                          </div>
-                        )}
-                        {mentor.requestedMatches.length > 0 && (
-                          <div style={{ marginTop: '4px', fontSize: '0.75rem', color: 'var(--color-accent)' }}>
-                            <strong>Needs your help:</strong> {mentor.requestedMatches.join(', ')}
-                          </div>
-                        )}
+                    <div style={{ display: 'flex', gap: '12px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.15)', padding: '16px', borderRadius: '10px' }}>
+                      <ShieldAlert size={20} style={{ color: 'var(--color-medium)', flexShrink: 0 }} />
+                      <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                        <strong>Pending Review:</strong> Your marksheet has been submitted successfully. College mentors have not written improvement recommendations yet. Please check back later.
                       </div>
-                    ))
+                    </div>
                   )}
                 </div>
+
+                {/* Quick Education summary */}
+                <div className="glass-panel" style={{ padding: '32px' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '20px' }}>Submitted Marksheets Summary</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {studentProfile.educationHistory.map((eh, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{eh.phase}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{eh.institute} ({eh.years})</div>
+                        </div>
+                        <div style={{ fontWeight: 800, color: 'var(--color-primary)', fontSize: '1rem' }}>
+                          {eh.marks}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Right Column: Help, Analytics & Peer matching */}
+              <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                
+                {/* Goal Tracker Card */}
+                <div className="glass-panel" style={{ padding: '28px' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🎯 My Study Goals
+                  </h3>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="form-group" style={{ marginBottom: '8px' }}>
+                      <label className="form-label">Target CGPA</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        max="10"
+                        className="form-input"
+                        value={localCgpa}
+                        onChange={(e) => setLocalCgpa(parseFloat(e.target.value) || '')}
+                        style={{ padding: '10px 14px' }}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label">Study Target: {localHours} hours/week</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="40"
+                        className="slider-input"
+                        value={localHours}
+                        onChange={(e) => setLocalHours(parseInt(e.target.value) || 0)}
+                        style={{ marginTop: '8px' }}
+                      />
+                    </div>
+
+                    {/* On Track Indicator */}
+                    {(() => {
+                      const reqHours = localCgpa >= 9.0 ? 15 : localCgpa >= 8.0 ? 10 : 6;
+                      let text = 'Behind Target';
+                      let badgeClass = 'badge-high';
+                      if (localHours >= reqHours) {
+                        text = 'On Track 🚀';
+                        badgeClass = 'badge-low';
+                      } else if (localHours >= reqHours - 3) {
+                        text = 'Needs Work ⚠️';
+                        badgeClass = 'badge-medium';
+                      }
+                      return (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
+                          <span className={`badge ${badgeClass}`}>{text}</span>
+                        </div>
+                      );
+                    })()}
+
+                    <button
+                      onClick={() => handleUpdateGoals(localCgpa, localHours)}
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '10px 16px', fontSize: '0.9rem', marginTop: '4px' }}
+                      disabled={updatingGoals}
+                    >
+                      {updatingGoals ? 'Saving Targets...' : 'Update Targets'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bridge Courses Card */}
+                <div className="glass-panel" style={{ padding: '28px' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📚 Recommended Bridging Courses
+                  </h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                    Acquire basic skills required to match B.Tech criteria.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {(() => {
+                      const courses = studentProfile.pathway === 'diploma_btech' ? [
+                        { name: 'Advanced Engineering Calculus Refresher', desc: 'Refresher for integration, derivatives, and linear equations.' },
+                        { name: 'Data Structures & OOP in Java', desc: 'Introduces core object design taught in B.Tech Year 1.' }
+                      ] : studentProfile.pathway === 'iti_diploma_btech' ? [
+                        { name: 'Foundation Mathematics & Vectors', desc: 'Core algebraic skills and calculus prerequisites.' },
+                        { name: 'Technical Sketching & Projections', desc: 'ITI mechanical drafting conversion training.' }
+                      ] : [
+                        { name: 'Introductory Programming in C++', desc: 'Essential logic design and algorithmic logic flow.' },
+                        { name: 'Engineering Force Statics', desc: 'Introductory mechanics bridging fundamentals.' }
+                      ];
+
+                      return courses.map((course, idx) => {
+                        const isDone = studentProfile.completedCourses?.includes(course.name);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => handleToggleCourse(course.name)}
+                            style={{
+                              display: 'flex',
+                              gap: '12px',
+                              padding: '14px',
+                              background: isDone ? 'rgba(16, 185, 129, 0.05)' : 'rgba(255,255,255,0.01)',
+                              border: isDone ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-color)',
+                              borderRadius: '12px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s'
+                            }}
+                            className="glass-panel-interactive"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isDone || false}
+                              onChange={() => {}}
+                              style={{ alignSelf: 'flex-start', marginTop: '3px', accentColor: 'var(--color-low)' }}
+                            />
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: '0.9rem', textDecoration: isDone ? 'line-through' : 'none', color: isDone ? 'var(--color-low)' : 'var(--text-primary)' }}>
+                                {course.name}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                {course.desc}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                {/* Peer Mentorship Matches Card */}
+                <div className="glass-panel" style={{ padding: '28px' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🤝 Peer Tutoring Matches
+                  </h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                    Students sharing complementary skills and learning requests.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {peerMentors.length === 0 ? (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
+                        No direct peer matches found. Update your requested/offered tutor skills in the profile wizard to list matching partners!
+                      </div>
+                    ) : (
+                      peerMentors.map((mentor, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            padding: '14px',
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '12px'
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{mentor.name}</div>
+                          <a href={`mailto:${mentor.email}`} style={{ fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
+                            {mentor.email}
+                          </a>
+                          
+                          {mentor.offeredMatches.length > 0 && (
+                            <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--color-low)' }}>
+                              <strong>Can help you:</strong> {mentor.offeredMatches.join(', ')}
+                            </div>
+                          )}
+                          {mentor.requestedMatches.length > 0 && (
+                            <div style={{ marginTop: '4px', fontSize: '0.75rem', color: 'var(--color-accent)' }}>
+                              <strong>Needs your help:</strong> {mentor.requestedMatches.join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Academic Resource Hub Card */}
+                <div className="glass-panel" style={{ padding: '28px' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📚 Academic Resource Hub
+                  </h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                    Shared study guides, syllabus links, and lecture prep documents.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {!studentProfile.resources || studentProfile.resources.length === 0 ? (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
+                        No study resources uploaded by course instructors yet.
+                      </div>
+                    ) : (
+                      studentProfile.resources.map((res, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            padding: '12px 14px',
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <div style={{ minWidth: 0, flex: 1, paddingRight: '8px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={res.title}>
+                              {res.title}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              Posted by: {res.postedBy}
+                            </div>
+                          </div>
+                          <a
+                            href={res.link.startsWith('http') ? res.link : `https://${res.link}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '6px', whiteSpace: 'nowrap' }}
+                          >
+                            Open Link 🔗
+                          </a>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
               </div>
 
             </div>
-
           </div>
         )}
       </div>
@@ -590,23 +729,37 @@ export default function Dashboard() {
                 borderRadius: '12px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px'
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px'
               }}>
-                {alert.type === 'warning' ? <AlertTriangle style={{ color: alertColors.text, flexShrink: 0 }} size={18} /> : <UserCheck style={{ color: alertColors.text, flexShrink: 0 }} size={18} />}
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>{alert.message}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                  {alert.type === 'warning' ? <AlertTriangle style={{ color: alertColors.text, flexShrink: 0 }} size={18} /> : <UserCheck style={{ color: alertColors.text, flexShrink: 0 }} size={18} />}
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>{alert.message}</span>
+                </div>
+                {alert.type !== 'success' && (
+                  <button 
+                    onClick={() => handleBroadcastInvite(alert.message)}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                  >
+                    Broadcast Invite 📢
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Visual Analytics Bar Chart */}
+      {/* Visual Analytics Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
         gap: '20px',
         marginBottom: '32px'
       }}>
+        {/* Card 1: Pathway distribution */}
         <div className="glass-panel" style={{ padding: '24px' }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={16} style={{ color: 'var(--color-accent)' }} /> Pathways Distribution
@@ -618,12 +771,13 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Card 2: Feeder institute rankings */}
         <div className="glass-panel" style={{ padding: '24px' }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             🏫 Feeder Institute Performance Rankings
           </h3>
           {stats?.feederInstitutes && stats.feederInstitutes.length > 0 ? (
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto', maxHeight: '180px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
@@ -646,6 +800,48 @@ export default function Dashboard() {
           ) : (
             <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem', textAlign: 'center', padding: '20px 0' }}>No feeder institute statistics available yet.</div>
           )}
+        </div>
+
+        {/* Card 3: Publish Resources */}
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            📚 Publish Academic Resources
+          </h3>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            Share links to syllabi, textbooks, or tutorials with all students.
+          </p>
+          <form onSubmit={handleShareResource} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="form-group">
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Resource Title (e.g. Calculus Formulas Reference)"
+                value={resTitle}
+                onChange={(e) => setResTitle(e.target.value)}
+                required
+                style={{ padding: '10px 14px', fontSize: '0.85rem' }}
+              />
+            </div>
+            <div className="form-group">
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Resource URL Link (e.g. drive.google.com/...)"
+                value={resLink}
+                onChange={(e) => setResLink(e.target.value)}
+                required
+                style={{ padding: '10px 14px', fontSize: '0.85rem' }}
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+              disabled={sharingResource}
+            >
+              {sharingResource ? 'Sharing...' : 'Share Resource Link 🔗'}
+            </button>
+          </form>
         </div>
       </div>
 

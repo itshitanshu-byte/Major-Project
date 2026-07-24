@@ -82,6 +82,27 @@ const StudentSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  predictedCgpa: {
+    type: Number,
+    default: 7.5
+  },
+  confidence: {
+    type: Number,
+    default: 80
+  },
+  notifications: {
+    type: [String],
+    default: []
+  },
+  resources: {
+    type: [{
+      title: { type: String, required: true },
+      link: { type: String, required: true },
+      postedBy: { type: String, default: 'Professor' },
+      date: { type: Date, default: Date.now }
+    }],
+    default: []
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

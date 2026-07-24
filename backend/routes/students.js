@@ -9,7 +9,9 @@ import {
   deleteStudent, 
   getStudentStats,
   getUserById,
-  getPeerMentors
+  getPeerMentors,
+  broadcastBridgeInvite,
+  postAcademicResource
 } from '../utils/db.js';
 
 const router = express.Router();
@@ -36,6 +38,42 @@ router.get('/peer-mentors', auth, async (req, res) => {
     res.json(mentors);
   } catch (err) {
     console.error('Get peer mentors error:', err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/students/broadcast-invite
+// @desc    Broadcast bridge class invitation alert
+// @access  Private (Teacher only)
+router.post('/broadcast-invite', auth, async (req, res) => {
+  const { pathway, message } = req.body;
+  try {
+    const caller = await getUserById(req.user.id);
+    if (!caller || caller.role !== 'teacher') {
+      return res.status(403).json({ msg: 'Access denied: Teacher role required.' });
+    }
+    await broadcastBridgeInvite(pathway, message);
+    res.json({ msg: 'Broadcast invitation posted successfully.' });
+  } catch (err) {
+    console.error('Broadcast invite error:', err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/students/resources
+// @desc    Upload resource link to Resource Hub
+// @access  Private (Teacher only)
+router.post('/resources', auth, async (req, res) => {
+  const { title, link } = req.body;
+  try {
+    const caller = await getUserById(req.user.id);
+    if (!caller || caller.role !== 'teacher') {
+      return res.status(403).json({ msg: 'Access denied: Teacher role required.' });
+    }
+    await postAcademicResource(title, link, caller.username);
+    res.json({ msg: 'Academic resource shared successfully.' });
+  } catch (err) {
+    console.error('Post resource error:', err.message);
     res.status(500).send('Server Error');
   }
 });

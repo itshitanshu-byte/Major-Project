@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Student from '../models/Student.js';
+import { predictBtechPerformance } from './predict.js';
 
 let isMockMode = false;
 
@@ -476,17 +477,24 @@ export async function getStudentByUserId(studentUserId) {
 }
 
 export async function createStudent(data) {
+  const { predictedCgpa, confidence } = predictBtechPerformance(data.educationHistory || []);
+  const processedData = {
+    ...data,
+    predictedCgpa,
+    confidence
+  };
+
   if (isMockMode) {
     const newStudent = {
       _id: 'mock_student_' + Math.random().toString(36).substr(2, 9),
-      ...data,
+      ...processedData,
       createdAt: new Date()
     };
     mockStudents.push(newStudent);
     return newStudent;
   }
   
-  const student = new Student(data);
+  const student = new Student(processedData);
   await student.save();
   return student;
 }
@@ -494,6 +502,13 @@ export async function createStudent(data) {
 export async function updateStudent(id, userId, updateData) {
   const caller = await getUserById(userId);
   const callerRole = caller ? caller.role : 'student';
+
+  let processedUpdate = { ...updateData };
+  if (updateData.educationHistory) {
+    const { predictedCgpa, confidence } = predictBtechPerformance(updateData.educationHistory);
+    processedUpdate.predictedCgpa = predictedCgpa;
+    processedUpdate.confidence = confidence;
+  }
 
   if (isMockMode) {
     const index = mockStudents.findIndex(s => s._id === id);
@@ -504,7 +519,7 @@ export async function updateStudent(id, userId, updateData) {
     
     const updated = {
       ...mockStudents[index],
-      ...updateData,
+      ...processedUpdate,
       // preserve IDs
       _id: id,
       createdBy: mockStudents[index].createdBy
@@ -520,7 +535,7 @@ export async function updateStudent(id, userId, updateData) {
 
   return await Student.findOneAndUpdate(
     query,
-    { $set: updateData },
+    { $set: processedUpdate },
     { new: true }
   );
 }
@@ -727,4 +742,49 @@ export async function getPeerMentors(userId) {
   }).filter(m => m !== null);
 
   return matches;
+}
+
+export async function broadcastBridgeInvite(pathway, message) {
+  if (isMockMode) {
+    mockStudents.forEach(s => {
+      if (s.pathway === pathway || !pathway) {
+        if (!s.notifications) s.notifications = [];
+        s.notifications.push(message);
+      }
+    });
+    return true;
+  }
+  
+  const query = pathway ? { pathway } : {};
+  await Student.updateMany(
+    query,
+    { $push: { notifications: message } }
+  );
+  return true;
+}
+
+export async function postAcademicResource(title, link, postedBy) {
+  const resourceObj = {
+    title,
+    link,
+    postedBy: postedBy || 'Professor',
+    date: new Date()
+  };
+
+  if (isMockMode) {
+    mockStudents.forEach(s => {
+      if (!s.resources) s.resources = [];
+      s.resources.push({
+        _id: 'res_' + Math.random().toString(36).substr(2, 9),
+        ...resourceObj
+      });
+    });
+    return true;
+  }
+  
+  await Student.updateMany(
+    {},
+    { $push: { resources: resourceObj } }
+  );
+  return true;
 }
