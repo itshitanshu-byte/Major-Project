@@ -32,6 +32,33 @@ function AdminLogin({ navigateTo, setAdminSession, API_BASE }) {
               Authenticate master node access to approve registered teachers and monitor global metrics.
             </p>
           </div>
+
+          {/* C. V. Raman Global University Official Logo */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", margin: "2rem 0", textAlign: "center" }}>
+            <div style={{
+              width: "150px",
+              height: "150px",
+              background: "#ffffff",
+              border: "3px solid #000000",
+              borderRadius: "50%",
+              boxShadow: "5px 5px 0 #000000",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "8px",
+              marginBottom: "1rem"
+            }}>
+              <img
+                src="/cgu_logo.png"
+                alt="C. V. Raman Global University Logo"
+                style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "50%" }}
+              />
+            </div>
+            <p style={{ fontFamily: "var(--font-brutal-display)", fontWeight: "900", fontSize: "1rem", color: "#000" }}>
+              C. V. Raman Global University
+            </p>
+          </div>
+
           <p style={{ fontSize: "0.75rem", fontWeight: 800 }}>
             evalX SECURITY PROTOCOL // VER 1.0.0
           </p>

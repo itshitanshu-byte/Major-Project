@@ -4,3 +4,5 @@ dist/
 *.pptx
 .DS_Store
 Thumbs.db
+cloudflared.exe
+

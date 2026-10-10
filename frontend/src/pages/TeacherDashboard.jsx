@@ -139,29 +139,51 @@ function TeacherDashboard({ teacher, handleLogout, showBrutalAlert, showBrutalCo
         });
       });
 
-      const response = await axios.post("https://integrate.api.nvidia.com/v1/chat/completions", {
-        model: "meta/llama-3.1-70b-instruct",
-        messages: [
-          {
-            role: "system",
-            content: "You are evalX academic cognitive guidance assistant. Analyze student marks and compile a highly structured, encouraging, and detailed academic remediation report. Identify weak subjects specifically. Highlight key topics they should review, advise actionable study actions, and recommend high quality online resources. Output in clean HTML formatting (h4, p, ul, li, strong) suitable for direct div rendering."
-          },
-          {
-            role: "user",
-            content: `Student Academic Profile:\nName: ${student.name}\nBranch: ${student.branch}\nCGPA: ${student.cgpa}\nWeak subjects: ${JSON.stringify(student.weakSubjects)}\nMarks:\n${docText}`
+      // Robust Multi-tier Nvidia AI Caller (Bypasses Browser CORS)
+      let content = "";
+      try {
+        const res = await axios.post("/api/ai/chat", {
+          apiKey,
+          model: "meta/llama-3.1-70b-instruct",
+          messages: [
+            {
+              role: "system",
+              content: "You are evalX academic cognitive guidance assistant. Analyze student marks and compile a highly structured, encouraging, and detailed academic remediation report. Identify weak subjects specifically. Highlight key topics they should review, advise actionable study actions, and recommend high quality online resources. Output in clean HTML formatting (h4, p, ul, li, strong) suitable for direct div rendering."
+            },
+            {
+              role: "user",
+              content: `Student Academic Profile:\nName: ${student.name}\nBranch: ${student.branch}\nCGPA: ${student.cgpa}\nWeak subjects: ${JSON.stringify(student.weakSubjects)}\nMarks:\n${docText}`
+            }
+          ],
+          temperature: 0.2,
+          max_tokens: 1200
+        });
+        content = res.data?.choices?.[0]?.message?.content || "";
+      } catch (err1) {
+        const res2 = await axios.post("/nvidia-api/v1/chat/completions", {
+          model: "meta/llama-3.1-70b-instruct",
+          messages: [
+            {
+              role: "system",
+              content: "You are evalX academic cognitive guidance assistant. Analyze student marks and compile a highly structured, encouraging, and detailed academic remediation report. Output in clean HTML formatting."
+            },
+            {
+              role: "user",
+              content: `Student Academic Profile:\nName: ${student.name}\nBranch: ${student.branch}\nCGPA: ${student.cgpa}\nWeak subjects: ${JSON.stringify(student.weakSubjects)}\nMarks:\n${docText}`
+            }
+          ],
+          temperature: 0.2,
+          max_tokens: 1200
+        }, {
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
           }
-        ],
-        temperature: 0.2,
-        max_tokens: 1200
-      }, {
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        }
-      });
+        });
+        content = res2.data?.choices?.[0]?.message?.content || "";
+      }
 
-      let html = response.data.choices[0].message.content;
-      html = html.replace(/```html/g, "").replace(/```/g, "").trim();
+      let html = content.replace(/```html/g, "").replace(/```/g, "").trim();
       setAiReport(`
         <div style="border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:0.75rem; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
           <span class="badge badge-success">✨ Verified Nvidia AI Inference</span>
@@ -236,7 +258,25 @@ function TeacherDashboard({ teacher, handleLogout, showBrutalAlert, showBrutalCo
     <div className="brutal-grid-layout" style={{ marginTop: "1rem" }}>
       <aside className="brutal-sidebar">
         <div style={{ textAlign: "center", paddingBottom: "2rem", borderBottom: "2px solid var(--border-brutal)", marginBottom: "2rem" }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👨‍🏫</div>
+          <div style={{
+            width: "88px",
+            height: "88px",
+            borderRadius: "50%",
+            background: "#ffffff",
+            border: "3px solid #000000",
+            boxShadow: "4px 4px 0 #000000",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 1rem",
+            padding: "5px"
+          }}>
+            <img
+              src="/cgu_logo.png"
+              alt="C. V. Raman Global University"
+              style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "50%" }}
+            />
+          </div>
           <h3 id="teacher-dash-title">Professor {teacher.name.split(" ").pop()}</h3>
           <p id="teacher-dash-subtitle" style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.5rem", wordBreak: "break-all" }}>
             {teacher.college} | Branch {teacher.branch} | Group {teacher.group}
@@ -388,19 +428,25 @@ function TeacherDashboard({ teacher, handleLogout, showBrutalAlert, showBrutalCo
                 </ul>
               </div>
 
-              <h4 style={{ fontSize: "1.25rem", marginBottom: "1rem", textTransform: "none" }}>Flagged Curricular Deficiencies</h4>
+              <h4 style={{ fontSize: "1.25rem", marginBottom: "1rem", textTransform: "none" }}>Flagged Curricular Deficiencies & Curated YouTube Courses</h4>
               <div className="brutal-subject-grid" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: "2rem" }}>
                 {selectedStudent.weakSubjects.length === 0 ? (
                   <div className="glass-card text-center text-success" style={{ gridColumn: "1 / -1", padding: "0.75rem", color: "var(--color-success)" }}>
                     No academic deficiencies flagged for this student.
                   </div>
                 ) : (
-                  selectedStudent.weakSubjects.map((w, idx) => (
-                    <div key={idx} className="weak-subject-card" style={{ padding: "0.75rem" }}>
-                      <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{w.name}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#f87171" }}>{w.reason}</div>
-                    </div>
-                  ))
+                  selectedStudent.weakSubjects.map((w, idx) => {
+                    const videoObj = REMEDIAL_GUIDES[w.name] || DEFAULT_GUIDE;
+                    return (
+                      <div key={idx} className="weak-subject-card" style={{ padding: "0.85rem" }}>
+                        <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>{w.name}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#f87171", fontWeight: "bold" }}>{w.reason}</div>
+                        <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                          <strong>Recommended Course:</strong> {videoObj.focus}
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
 

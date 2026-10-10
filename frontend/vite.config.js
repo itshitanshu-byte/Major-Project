@@ -10,6 +10,15 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:5050",
         changeOrigin: true
+      },
+      "/health": {
+        target: "http://localhost:5050",
+        changeOrigin: true
+      },
+      "/nvidia-api": {
+        target: "https://integrate.api.nvidia.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/nvidia-api/, "")
       }
     }
   }

@@ -9,7 +9,7 @@ import TeacherDashboard from "./pages/TeacherDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://project1-1backend.onrender.com/api";
+const API_BASE = import.meta.env.VITE_API_BASE || (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") ? "/api" : "https://project1-1backend.onrender.com/api");
 
 function App() {
   const [currentHash, setCurrentHash] = useState(window.location.hash || "#home");
@@ -27,7 +27,8 @@ function App() {
   useEffect(() => {
     const wakeBackend = async () => {
       try {
-        await axios.get(`${API_BASE.replace('/api', '')}/health`, { timeout: 60000 });
+        const healthUrl = API_BASE === "/api" ? "/health" : `${API_BASE.replace('/api', '')}/health`;
+        await axios.get(healthUrl, { timeout: 8000 });
         setBackendReady(true);
       } catch {
         setBackendReady(true); // proceed anyway
